@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tengo Taco - Edamam Prototype</title>
+    <style>
+        /* CSS is unchanged, so it is omitted for brevity but should be included from the previous step */
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; background-color: #f4f4f9; color: #333; margin: 0; padding: 2rem; }
+        .container { max-width: 1200px; margin: auto; text-align: center; }
+        h1 { color: #d35400; }
+        .search-box { margin: 2rem 0; display: flex; justify-content: center; gap: 10px; }
+        #searchInput { width: 300px; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 1rem; }
+        #searchButton { padding: 12px 24px; border: none; background-color: #e67e22; color: white; border-radius: 8px; cursor: pointer; font-size: 1rem; transition: background-color 0.3s; }
+        #searchButton:hover { background-color: #d35400; }
+        #messageContainer { margin: 1.5rem 0; font-style: italic; color: #555; }
+        .results-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 1.5rem; margin-top: 2rem; }
+        .recipe-card { background-color: white; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); overflow: hidden; transition: transform 0.3s; cursor: pointer; }
+        .recipe-card:hover { transform: translateY(-5px); }
+        .recipe-card img { width: 100%; height: 200px; object-fit: cover; }
+        .recipe-card-content { padding: 1rem; }
+        .recipe-card-content h3 { margin: 0 0 0.5rem 0; font-size: 1.2rem; }
+        .recipe-card-content p { font-size: 0.9rem; color: #666; margin: 0; }
+        .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.6); }
+        .modal-content { background-color: #fefefe; margin: 5% auto; padding: 20px; border: 1px solid #888; width: 80%; max-width: 600px; border-radius: 10px; position: relative; }
+        .modal-close { color: #aaa; position: absolute; top: 10px; right: 25px; font-size: 35px; font-weight: bold; }
+        .modal-close:hover, .modal-close:focus { color: black; text-decoration: none; cursor: pointer; }
+        #modal-ingredients-list { list-style-type: disc; padding-left: 20px; text-align: left; }
+        #modal-actions { margin-top: 20px; }
+        #modal-actions a, #modal-actions button { display: inline-block; padding: 10px 15px; background-color: #27ae60; color: white; text-decoration: none; border-radius: 5px; margin-right: 10px; border: none; font-size: 1em; cursor: pointer; }
+        #shopping-list-button { background-color: #3498db; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Tengo Taco 🌮</h1>
+        <p>Enter an ingredient to find the perfect taco recipe.</p>
+        <div class="search-box">
+            <input type="text" id="searchInput" placeholder="e.g., shrimp, chicken, beef">
+            <button id="searchButton">Find Tacos</button>
+        </div>
+        <div id="messageContainer"></div>
+        <div id="resultsGrid" class="results-grid"></div>
+    </div>
+
+    <div id="recipeModal" class="modal">
+        <div class="modal-content">
+            <span id="modalClose" class="modal-close">&times;</span>
+            <h2 id="modal-title">Recipe Title</h2>
+            <img id="modal-image" src="" alt="Recipe Image" style="width:100%; max-height: 300px; object-fit: cover; border-radius: 5px;">
+            <h3>Ingredients</h3>
+            <ul id="modal-ingredients-list"></ul>
+            <div id="modal-actions">
+    <a id="modal-source-link" href="#" target="_blank">View Full Instructions</a>
+    <button id="shopping-list-button">🛒 Add to Instacart</button>
+</div>
+        </div>
+    </div>
+
+    <script>
+        // --- CONFIGURATION ---
+        const API_PROXY_URL = 'http://localhost:3001';
+        let currentRecipeForShoppingList = null; // Variable to hold the current recipe's data
+
+        // --- DOM ELEMENTS ---
+        const searchInput = document.getElementById('searchInput');
+        const searchButton = document.getElementById('searchButton');
+        const resultsGrid = document.getElementById('resultsGrid');
+        const messageContainer = document.getElementById('messageContainer');
+        const modal = document.getElementById('recipeModal');
+        const modalClose = document.getElementById('modalClose');
+        const modalTitle = document.getElementById('modal-title');
+        const modalImage = document.getElementById('modal-image');
+        const modalIngredientsList = document.getElementById('modal-ingredients-list');
+        const modalSourceLink = document.getElementById('modal-source-link');
+        const shoppingListButton = document.getElementById('shopping-list-button'); // Get the new button
+
+        // --- EVENT LISTENERS ---
+        searchButton.addEventListener('click', handleSearch);
+        searchInput.addEventListener('keyup', (event) => { if (event.key === 'Enter') handleSearch(); });
+        modalClose.onclick = () => modal.style.display = "none";
+        window.onclick = (event) => { if (event.target == modal) modal.style.display = "none"; }
+        shoppingListButton.addEventListener('click', handleCreateShoppingList); // Add event listener
+
+        // --- CORE LOGIC (SEARCH AND DISPLAY) ---
+        async function handleSearch() {
+            // Unchanged from previous step
+            const ingredient = searchInput.value.trim();
+            if (!ingredient) return;
+            resultsGrid.innerHTML = '';
+            messageContainer.textContent = 'Searching for the best tacos...';
+            const tacoQuery = `${ingredient} taco`;
+            const primaryResults = await fetchRecipes(tacoQuery);
+            if (primaryResults && primaryResults.hits && primaryResults.hits.length > 0) {
+                messageContainer.textContent = `Showing results for "${tacoQuery}"`;
+                displayRecipes(primaryResults.hits);
+            } else {
+                messageContainer.textContent = `No taco-specific recipes found. Expanding search...`;
+                const fallbackResults = await fetchRecipes(ingredient);
+                if (fallbackResults && fallbackResults.hits && fallbackResults.hits.length > 0) {
+                    messageContainer.innerHTML += '<br>Try turning one of these on its head and make a taco!';
+                    displayRecipes(fallbackResults.hits);
+                } else {
+                    messageContainer.textContent = `Sorry, no recipes found for "${ingredient}" at all.`;
+                }
+            }
+        }
+        async function fetchRecipes(query) {
+            // Unchanged from previous step
+            const url = `${API_PROXY_URL}/api/search?q=${encodeURIComponent(query)}`;
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                return await response.json();
+            } catch (error) {
+                console.error("Error fetching recipes from proxy:", error);
+                messageContainer.textContent = "Could not fetch recipes.";
+                return null;
+            }
+        }
+        function displayRecipes(hits) {
+            // Unchanged from previous step
+            resultsGrid.innerHTML = ''; 
+            hits.forEach(hit => {
+                const recipe = hit.recipe;
+                const card = document.createElement('div');
+                card.className = 'recipe-card';
+                const recipeId = recipe.uri.split('#recipe_')[1];
+                card.dataset.recipeId = recipeId;
+                card.onclick = () => showRecipeDetails(recipeId);
+                card.innerHTML = `<img src="${recipe.image}" alt="${recipe.label}"><div class="recipe-card-content"><h3>${recipe.label}</h3><p>Source: ${recipe.source}</p></div>`;
+                resultsGrid.appendChild(card);
+            });
+        }
+        async function showRecipeDetails(recipeId) {
+            // Unchanged from previous step
+            if (!recipeId) return;
+            modalTitle.textContent = 'Loading...';
+            modalIngredientsList.innerHTML = '';
+            modal.style.display = "block";
+            const url = `${API_PROXY_URL}/api/recipe/${encodeURIComponent(recipeId)}`;
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const data = await response.json();
+                currentRecipeForShoppingList = data.recipe; // *** STORE THE FULL RECIPE DATA ***
+                modalTitle.textContent = currentRecipeForShoppingList.label;
+                modalImage.src = currentRecipeForShoppingList.image;
+                modalSourceLink.href = currentRecipeForShoppingList.url;
+                modalIngredientsList.innerHTML = '';
+                currentRecipeForShoppingList.ingredientLines.forEach(line => {
+                    const li = document.createElement('li');
+                    li.textContent = line;
+                    modalIngredientsList.appendChild(li);
+                });
+            } catch (error) {
+                console.error("Error fetching recipe details:", error);
+                modalTitle.textContent = 'Failed to load recipe';
+            }
+        }
+    
+// In index.html
+
+        async function handleCreateShoppingList() {
+            if (!currentRecipeForShoppingList) {
+                alert("No recipe selected!");
+                return;
+            }
+
+            const postData = currentRecipeForShoppingList;
+            
+            shoppingListButton.textContent = "Creating...";
+            shoppingListButton.disabled = true;
+
+            try {
+                const response = await fetch(`${API_PROXY_URL}/api/shopping-list`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(postData)
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.errors[0].error);
+                }
+                
+                const data = await response.json();
+                
+                // *** FINAL CORRECTION: Look for the link in the correct nested path ***
+                const instacartUrl = data._links && data._links['shopping-cart'] && data._links['shopping-cart'].href;
+
+                if (instacartUrl) {
+                    // It worked! Open the Instacart URL in a new tab.
+                    window.open(instacartUrl, '_blank');
+                } else {
+                    // If the link is still not found, show the alert.
+                    alert("Could not generate an Instacart link from the response.");
+                }
+
+            } catch(error) {
+                console.error("Error creating shopping list:", error);
+                alert(`Failed to create shopping list: ${error.message}`);
+            } finally {
+                // Reset the button
+                shoppingListButton.textContent = "🛒 Add to Instacart";
+                shoppingListButton.disabled = false;
+            }
+        }
+
+</script>
+
+</body>
+</html>

@@ -1,0 +1,76 @@
+// server.js
+
+const express = require('express');
+const fetch = require('node-fetch');
+const cors = require('cors');
+
+const app = express();
+const PORT = 3001;
+
+app.use(cors());
+
+const EDAMAM_APP_ID = '19ffe9a1';
+const EDAMAM_API_KEY = '6bcc5487d7575c387485d0f04df787d2';
+const API_BASE_URL = 'https://api.edamam.com/api/recipes/v2';
+
+// Endpoint for searching recipes (no changes here)
+app.get('/api/search', async (req, res) => {
+    const userQuery = req.query.q;
+    if (!userQuery) {
+        return res.status(400).json({ error: 'Query parameter "q" is required' });
+    }
+    const params = new URLSearchParams({
+        type: 'public',
+        q: userQuery,
+        app_id: EDAMAM_APP_ID,
+        app_key: EDAMAM_API_KEY
+    });
+    const url = `${API_BASE_URL}?${params}`;
+    console.log("Proxying search request to:", url);
+    try {
+        const apiResponse = await fetch(url, {
+            method: 'GET',
+            headers: { 'Edamam-Account-User': 'tengo-taco-test-user' }
+        });
+        const data = await apiResponse.json();
+        if (data.status === 'error') {
+            return res.status(400).json({ error: data.message });
+        }
+        res.json(data);
+    } catch (error) {
+        console.error("Error proxying API request:", error);
+        res.status(500).json({ error: 'Failed to fetch data from Edamam API' });
+    }
+});
+
+// *** NEW ENDPOINT FOR FETCHING A SINGLE RECIPE BY ID ***
+app.get('/api/recipe/:id', async (req, res) => {
+    // Edamam recipe IDs can contain special characters, so we need to encode them.
+    const recipeId = encodeURIComponent(req.params.id);
+    if (!recipeId) {
+        return res.status(400).json({ error: 'Recipe ID is required' });
+    }
+
+    const url = `${API_BASE_URL}/${recipeId}?type=public&app_id=${EDAMAM_APP_ID}&app_key=${EDAMAM_API_KEY}`;
+    console.log("Proxying single recipe request to:", url);
+
+    try {
+        const apiResponse = await fetch(url, {
+            method: 'GET',
+            headers: { 'Edamam-Account-User': 'tengo-taco-test-user' }
+        });
+        const data = await apiResponse.json();
+        if (data.status === 'error') {
+            return res.status(400).json({ error: data.message });
+        }
+        res.json(data);
+    } catch (error) {
+        console.error("Error proxying API request:", error);
+        res.status(500).json({ error: 'Failed to fetch data from Edamam API' });
+    }
+});
+
+
+app.listen(PORT, () => {
+    console.log(`Tengo Taco proxy server running on http://localhost:${PORT}`);
+});
