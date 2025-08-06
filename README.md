@@ -42,7 +42,7 @@ Prerequisites
 
 First, clone the project to your local machine:
 
-git clone [https://github.com/8BitTacoSupreme/tengo-taco.git](https://github.com/8BitTacoSupreme/tengo-taco.git)
+git clone https://github.com/8BitTacoSupreme/tengo-taco.git
 cd tengo-taco
 
 2. Configure Your API Keys
@@ -55,10 +55,12 @@ This is the most important step. Your private API credentials must be added to t
 
     Find the following lines at the top of the file:
 
-    const EDAMAM_APP_ID = 'YOUR_APP_ID';
-    const EDAMAM_API_KEY = 'YOUR_API_KEY';
+    const EDAMAM_APP_ID = 'YOUR_APP_ID_HERE';
+    const EDAMAM_API_KEY = 'YOUR_API_KEY_HERE';
 
     Replace the placeholder values with your actual Edamam Application ID and Application Key.
+
+    ⚠️ Security Warning: This method hardcodes your secret keys into the application code. While simple for local testing, never commit this file to a public repository with the keys filled in. Always remove them before committing. For a more secure and standard approach, consider using a .env file.
 
 3. Install Backend Dependencies
 
