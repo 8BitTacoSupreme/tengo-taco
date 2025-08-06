@@ -1,5 +1,6 @@
 // server.js
 
+require('dotenv').config(); 
 const express = require('express');
 const fetch = require('node-fetch');
 const cors = require('cors');
@@ -10,8 +11,8 @@ const PORT = 3001;
 app.use(cors());
 app.use(express.json());
 
-const EDAMAM_APP_ID = '19ffe9a1';
-const EDAMAM_API_KEY = '6bcc5487d7575c387485d0f04df787d2';
+const EDAMAM_APP_ID = process.env.EDAMAM_APP_ID;
+const EDAMAM_API_KEY = process.env.EDAMAM_API_KEY;
 
 // Endpoint for searching recipes
 app.get('/api/search', async (req, res) => {
