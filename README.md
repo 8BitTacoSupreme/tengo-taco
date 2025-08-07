@@ -4,6 +4,8 @@ Tengo Taco is a simple and powerful web application that helps you find the perf
 
 This project is built as a prototype using vanilla HTML, CSS, and JavaScript for the frontend, and a Node.js/Express backend that acts as a secure proxy to handle API requests.
 
+  * [TRY THE ONLINE DEMO](https://www.tengotaco.com/)
+
 ## Features
 
 * **Ingredient-Based Search:** Enter an ingredient (e.g., "shrimp", "chicken") to find relevant taco recipes.
